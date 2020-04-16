@@ -23,6 +23,11 @@ web_jinGame_env = web_jinGame(domain)
 def home():
     return render_template('home_page.html')
 
+# ルールの表示ページ
+@app.route('/rule_page')
+def rule():
+    return render_template('rule_page.html')
+
 #### vs ai ####
 # プレイ画面
 @app.route('/play_page_vs_ai')
