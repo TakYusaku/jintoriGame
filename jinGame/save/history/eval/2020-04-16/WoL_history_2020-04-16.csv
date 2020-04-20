@@ -1,2 +1,0 @@
-,num_sets,num_epochs,num_games_per_selfplay,now_exec,num_agent_won,num_opponent_won,agent_won,won_target_network,won_policy_network,on_eps_zero
-0,1,1,1,1.0,0.0,1.0,0.0,./save/parameter/2020-04-16/policy_2020-04-16 20:03:16_0_T.pt,./save/parameter/2020-04-16/target_2020-04-16 20:03:16_0_T.pt,True
