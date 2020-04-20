@@ -53,7 +53,7 @@ class jinGame_DQNAgent():
 
         self.action_history = deque() # 行った行動を保存しておく
         self.agent_history = [[],[],[]] # [[#loss_median], [# target_name], [# policy_name]]
-        self.feature_for_reward = [[],[],[]] #[[before_reward],[now_reward],[code]]
+        self.feature_for_reward = [[],[],[],[]] #[[before_point],[now_point],[code],[do_direction]]
 
         self.EXPORT_REPLAYMEMORY_FILE_NAME_1 = ''
         self.EXPORT_REPLAYMEMORY_FILE_NAME_2 = ''
@@ -198,8 +198,44 @@ class jinGame_DQNAgent():
 
     def _reward(self,usr):
         #return 2*sigmoid(reward_r/100)-1
+        print('usr',usr)
+        print('self.feature_for_reward',self.feature_for_reward)
         rewards = (self.feature_for_reward[1][usr] - self.feature_for_reward[0][usr])/6 + (self.feature_for_reward[2][usr]-5)/5
-        return round(rewards/2,3)
+        print('reward',rewards)
+        return rewards/2
+
+    def _reward_ver2(self,usr):
+        print('usr',usr)
+        print('self.feature_for_reward',self.feature_for_reward)
+        if self.feature_for_reward[2][usr]==5 or (self.feature_for_reward[2][usr]==4 and self.feature_for_reward[3][usr] > 8): # codeが5,4(remove)なら1, それ以外なら-1
+            fac1 = 1
+        else:
+            fac1 = -1
+
+        if self.feature_for_reward[3][usr]==-1: 
+            fac2 = 0
+        elif self.feature_for_reward[3][usr]==4: # 他のますに対する行動をしなかったら-1, したら1
+            fac2 = -1
+        else:
+            fac2 = 1
+
+        if usr==1:
+            idx = 1
+        else:
+            idx = 4
+
+        if (self.feature_for_reward[0][idx] != 0 and self.feature_for_reward[1][idx] != 0) or (self.feature_for_reward[0][idx] == 0 and self.feature_for_reward[1][idx] != 0): # areapoint!=0が維持 or areapoint が入れば1
+            fac3 = 1
+        elif self.feature_for_reward[0][idx] != 0 and self.feature_for_reward[1][idx] == 0: # areapointが0になれば-1,
+            fac3 = -1
+        else:
+            fac3 = -1
+
+        print('fac1,fac2,fac3',fac1,fac2,fac3)
+        reward = (fac1+fac2+fac3)/3
+        print('reward',reward)
+        return reward
+
 
     def _insert_agent(self, user_id):
         japantime_now = get_japantime_now()
@@ -505,7 +541,8 @@ class jinGame_DQNAgent():
             replay_memory_itemID_valueList = replay_memory_dic[itemIDList[i]]
             '''
             # reward
-            reward.append(self._reward(i))
+            #reward.append(self._reward(i))
+            reward.append(self._reward_ver2(i))
 
             if replay_memory_dic[str(userIDList[i])] is None:
                 continue
@@ -679,13 +716,15 @@ class jinGame_DQNAgent():
                 point_before_moving = env._calcPoint()
 
                 if t==0:
-                    self.feature_for_reward[0] = [0,0] # before_point
-                    self.feature_for_reward[1] = [point_before_moving[2],point_before_moving[5]] # now_point
-                    self.feature_for_reward[2] = [0,0] # code
+                    self.feature_for_reward[0] = [0,0,0,0,0,0] # before_point
+                    #self.feature_for_reward[1] = [point_before_moving[2],point_before_moving[5]] # now_point
+                    self.feature_for_reward[1] = point_before_moving # now_point
+                    self.feature_for_reward[2] = [5,5] # code
+                    self.feature_for_reward[3] = [-1,-1]
                 else:
                     self.feature_for_reward[0] = self.feature_for_reward[1] # before_point
-                    self.feature_for_reward[1] = [point_before_moving[2],point_before_moving[5]] # now_point
-
+                    #self.feature_for_reward[1] = [point_before_moving[2],point_before_moving[5]] # now_point
+                    self.feature_for_reward[1] = point_before_moving # now_point
                 # 特徴量をもとにネットワークから行動を取得
                     # run_agent() で次の行動を決める(実際に行動はしない)
                 #agent = DQNAgent(self.k_division)
@@ -727,7 +766,8 @@ class jinGame_DQNAgent():
                 # エージェントの移動先が重なってるか，いないかを判定し行動を決定
                 #print(df_action)
                 cnf, m_data, n_data = env.check_action(df_action)
-                #print(df_action)
+                self.feature_for_reward[3] = n_data
+                #print('m_data, n_data',m_data, n_data)
 
                 #df_action["is_possible"] = np.array([int(i) for i in enumerate(df_action["is_possible"][1])])
                 df_dic.update(df_action)
