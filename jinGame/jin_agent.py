@@ -32,7 +32,7 @@ def get_dim_list(li): # 2次元配列(list)のshapeを取得
 
 class jinGame_DQNAgent():
     # 何か初期化がいるなら追加する
-    def __init__(self,k_division=17, states_number=27, eps_start=0.99, eps_end=0.1, eps_decay=100,gamma=0.9, target_update=7):
+    def __init__(self,k_division=17, states_number=27, eps_start=0.99, eps_end=0.1, eps_decay=100,gamma=0.9, target_update=10):#target_update=7):
         self.k_division = k_division
         self.states_number = states_number
         self.actions_number = k_division
@@ -48,6 +48,7 @@ class jinGame_DQNAgent():
         self.memory_length = 0
         self.samplingCount = 0
         self.averageLoss = -1
+        self.eps_threshold = 0
 
         self.on_epsilon_zero = ON_EPSILON_ZERO
 
@@ -205,8 +206,8 @@ class jinGame_DQNAgent():
         return rewards/2
 
     def _reward_ver2(self,usr):
-        print('usr',usr)
-        print('self.feature_for_reward',self.feature_for_reward)
+        #print('usr',usr)
+        #print('self.feature_for_reward',self.feature_for_reward)
         if self.feature_for_reward[2][usr]==5 or (self.feature_for_reward[2][usr]==4 and self.feature_for_reward[3][usr] > 8): # codeが5,4(remove)なら1, それ以外なら-1
             fac1 = 1
         else:
@@ -231,9 +232,9 @@ class jinGame_DQNAgent():
         else:
             fac3 = -1
 
-        print('fac1,fac2,fac3',fac1,fac2,fac3)
+        #print('fac1,fac2,fac3',fac1,fac2,fac3)
         reward = (fac1+fac2+fac3)/3
-        print('reward',reward)
+        #print('reward',reward)
         return reward
 
 
@@ -352,6 +353,7 @@ class jinGame_DQNAgent():
             sample = random.random()
             #これはPyTorchのDQNチュートリアルから
             eps_threshold = self.eps_end + (self.eps_start - self.eps_end) *  math.exp(-1. * self.steps_done / self.eps_decay)
+            self.eps_threshold = eps_threshold
             #print("######### policy net ###")
             #print('self.policy_net',self.policy_net)
             #print('(state)',self.policy_net(state))
@@ -364,7 +366,7 @@ class jinGame_DQNAgent():
                 return torch.tensor(random.randrange(self.actions_number), device=self.device, dtype=torch.long)
                 #return torch.tensor([random.randrange(self.actions_number) for i in range(len(state))], device=self.device, dtype=torch.long)
 
-    def _run_agent(self, df_division, model_state_dict,i_flg=False): # 学習させてloss, nextActionを取得, i_flgは各インターバル1回目の学習
+    def _run_agent(self, df_division, model_state_dict, epc, turn,i_flg=False): # 学習させてloss, nextActionを取得, i_flgは各インターバル1回目の学習
         dim = df_division.shape
         #モデルに渡すagentの数
         self.numberOfProducts = dim[0]#len(df_division)
@@ -586,7 +588,8 @@ class jinGame_DQNAgent():
             returnLoss = sumLoss / self.samplingCount
             self.averageLoss = returnLoss
         #print('loss',returnLoss)
-        if self.steps_done % self.target_update == 0:
+        if epc == 0 and turn ==0 and self.steps_done % self.target_update == 0:
+            print('update target net')
             self.target_net.load_state_dict(self.policy_net.state_dict())
 
         #next_state_normalized = encode_onehot(next_state, onehot_idx_list, onehot_len_list)
@@ -731,9 +734,9 @@ class jinGame_DQNAgent():
                 if not evaluation: # 学習中
                     # db_agent, df_division
                     if epc == 0:
-                        new_action, loss, reward = self._run_agent(df_division, model.state_dict(), i_flg=True) # new_action は数字を返す
+                        new_action, loss, reward = self._run_agent(df_division, model.state_dict(), epc, t, i_flg=True) # new_action は数字を返す
                     else:
-                        new_action, loss, reward = self._run_agent(df_division, model.state_dict()) # new_action は数字を返す
+                        new_action, loss, reward = self._run_agent(df_division, model.state_dict(), epc, t) # new_action は数字を返す
                 else: # self play
                     dim = df_division.shape
                     next_state = torch.FloatTensor(df_division[:,dim[1]/2:])
@@ -773,6 +776,7 @@ class jinGame_DQNAgent():
                 df_dic.update(df_action)
                 df_dic["is_confliction"] = np.array([cnf]*2)
                 df_dic['on_eps_zero'] = np.array([self.on_epsilon_zero]*2)
+                df_dic['eps_threshold'] = np.array([self.eps_threshold]*2)
                 #print(df_dic)
 
                 #print(m_data)
@@ -946,10 +950,13 @@ class jinGame_DQNAgent():
 
     def select_model(self, a_logs, first=False, e_logs=None):
         if e_logs is not None: # 2回目(self play終了後)に呼ばれるとき
+            return {"policy":a_logs["policy"], "target":a_logs["target"]}
+            '''
             if float(int(e_logs['agent_won']) / int(e_logs['num_game'])) >= 0.5: # agentの勝率が5割以上
                 return {"policy":a_logs["policy"], "target":a_logs["target"]}
             else:
                 return {"policy":e_logs["oppo_policy"], "target":e_logs["oppo_target"]}
+            '''
         else: # 1回目(self play前)に呼ばれるとき
             if first: # 初回のself play
                 self.agent_history[0].append(a_logs['loss_median'])
@@ -972,6 +979,8 @@ class jinGame_DQNAgent():
         num_agent_won = np.array([])
         num_opponent_won = np.array([])
         agent_won = np.array([])
+        agent_policy_network = np.array([])
+        agent_target_network = np.array([])
         won_network_filename_target = np.array([])
         won_network_filename_policy = np.array([])
         self.steps_done = 0
@@ -980,6 +989,7 @@ class jinGame_DQNAgent():
 
         try:
             for idx in range(NUMBER_OF_SETS):
+                print('self.steps_done',self.steps_done)
                 now_exec = np.append(now_exec, idx+1)
                 print('now_exec:', idx+1)
                 japantime_now = get_japantime_now()
@@ -996,6 +1006,8 @@ class jinGame_DQNAgent():
                     opponent = self.select_model(a_logs)
 
                 agent = {"policy":a_logs["policy"], "target":a_logs["target"]}
+                agent_policy_network = np.append(agent_policy_network, agent['policy'])
+                agent_target_network = np.append(agent_target_network, agent['target'])
                 #print(agent)
                 #print(opponent)
                 japantime_now = get_japantime_now()
@@ -1033,6 +1045,8 @@ class jinGame_DQNAgent():
             df_Logs['num_agent_won'] = num_agent_won
             df_Logs['num_opponent_won'] = num_opponent_won
             df_Logs['agent_won'] = agent_won
+            df_Logs['agent_target_network'] = agent_policy_network
+            df_Logs['agent_policy_network'] = agent_target_network
             df_Logs['won_target_network'] = won_network_filename_target
             df_Logs['won_policy_network'] = won_network_filename_policy
             df_Logs['on_eps_zero'] = np.array([self.on_epsilon_zero]*NUMBER_OF_SETS)
