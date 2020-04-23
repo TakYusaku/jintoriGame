@@ -70,12 +70,14 @@ class jinGame_DQNAgent():
     def _init_agent(self, flg=False):
         if self.on_epsilon_zero: # epsilon-zero起動時
             if not flg: # 学習のとき
+                #print('_init_agent: not flg')
                 self.policy_net = DQN_epsZero(self.states_number, self.actions_number).to(self.device)
                 self.target_net = DQN_epsZero(self.states_number, self.actions_number).to(self.device)
                 self.target_net.eval()
                 self.optimizer = optim.RMSprop(self.policy_net.parameters(),lr=1e-4)
                 self.replay_memory = ReplayMemory(self.memory_length)
             else: # evaluationのとき
+                #print('_init_agent: flg')
                 self.policy_net_a = DQN_epsZero(self.states_number, self.actions_number).to(self.device)
                 self.target_net_a = DQN_epsZero(self.states_number, self.actions_number).to(self.device)
                 self.target_net_a.eval()
@@ -110,21 +112,7 @@ class jinGame_DQNAgent():
                 self.target_net_a.load_state_dict(torch.load(file_name[0]['target']))   
                 self.policy_net_e.load_state_dict(torch.load(file_name[1]['oppo_policy']))
                 self.target_net_e.load_state_dict(torch.load(file_name[1]['oppo_target']))   
-    '''
-    def _select_row_by_userID(self, userID):
-        # replay_memoryのデータを取得
-        # replay_memory_memory = :replay_memory_memory, steps_done = :steps_done
-        # result = db_agent.get_item(Key={'k_division': k_division, 'item_id': item_id})
-        # 上のやつを参考にデータを取得
-        row_file_name = REPLAYMEMORY_DIRECTORY_NAME + IMPORT_REPLAYMEMORY_FILE_NAME
-        try:
-            row = result
-        except:
-            #print("not found memory by userID")
-            row = None
-        finally:
-            return row
-    '''
+
     #replay_memoryにはmemory_lengthだけ格納することができる。その中から一回だけ、batch_size分だけ取得して学習する。
     def _optimize_model(self):
         #replay_memoryにbatch_size分だけ入っていない時は中止する
@@ -137,6 +125,8 @@ class jinGame_DQNAgent():
         sampled_next_state = torch.FloatTensor([])
         for data in sampled_data:
             #catはtorch.Tensorをリスト入れて渡すことで、それらを連結したTensorを返してくれる。0で行を追加となる
+            #print('type(data)',type(data))
+            #print(data)
             sampled_state = torch.cat((sampled_state, data.state.view(1,-1)), 0)
             sampled_next_state = torch.cat((sampled_next_state, data.next_state.view(1,-1)), 0)
             sampled_action.append(data.action)
@@ -148,21 +138,9 @@ class jinGame_DQNAgent():
         #print('sampled_action: ',sampled_action)
         #print('sampled_reward: ',sampled_reward)
 
-        #sampled_state = encode_onehot(sampled_state, onehot_idx_list, onehot_len_list)
-        ##print('sampled_state_encode_onehot: ',sampled_state)
-        #sampled_state = normalize_mask(sampled_state, onehot_idx_list, onehot_len_list)
-        ##print('sampled_state_normalize_mask: ',sampled_state)
-
-        #sampled_next_state = encode_onehot(sampled_next_state, onehot_idx_list, onehot_len_list)
-        ##print('sampled_next_state_encode_onehot: ',sampled_next_state)
-        #sampled_next_state = normalize_mask(sampled_next_state, onehot_idx_list, onehot_len_list)
-        ##print('sampled_next_state_normalize_mask: ',sampled_next_state)
-
         sampled_action = torch.FloatTensor(sampled_action)
         sampled_reward = torch.FloatTensor(sampled_reward)
         
-        #print('sampled_action_after_transform: ',sampled_action)
-        #print('sampled_reward_after_transform: ',sampled_reward)
 
         #to GPU
         sampled_state = sampled_state.to(self.device)
@@ -236,7 +214,6 @@ class jinGame_DQNAgent():
         reward = (fac1+fac2+fac3)/3
         #print('reward',reward)
         return reward
-
 
     def _insert_agent(self, user_id):
         japantime_now = get_japantime_now()
@@ -343,6 +320,7 @@ class jinGame_DQNAgent():
     def _select_action(self, state, evaluation=False, ez_flg=False): # ez_flg は epsilon-zero 用フラグ
         state = state.to(self.device)
         if evaluation or ez_flg: # self play中
+            #print('ez_flg')
             #print("######### policy net ###")
             #print(self.policy_net)
             #print(self.policy_net(state))
@@ -387,24 +365,9 @@ class jinGame_DQNAgent():
 
         #userId取得
         userIDList = [1,2]
-
-        #steps_doneの中で最大値を取ってくる。 最大でないsteps_doneは在庫切れ、新しく登録された商品に該当する。
-         #self.steps_done = dynamo_select_max_steps_done(db_agent, self.k_division)
         
-        '''
-        if i_flg: # epoch = 1のとき , ここでのepochは各インターバルでのepoch =1
-            self._init_agent()
-            #初回はpytorchのパラメータ保存ファイルがないので、loadしない。初回はsteps_done=0となる。
-            if self.steps_done==0:
-            #ここで楽観的初期化を行う
-                self.policy_net.load_state_dict(model_state_dict)
-                self.target_net.load_state_dict(model_state_dict)
-            # if self.steps_done != 0:
-            elif self.steps_done != 0:
-                self._load_agent()
-        '''
-        
-        if i_flg: # epoch = 1のとき , ここでのepochは各インターバルでのepoch =1
+        if i_flg: # epoch = 1 かつ turn =1 のとき , ここでのepochは各インターバルでのepoch =1
+            #print('i_flg')
             self._init_agent()
             #初回はpytorchのパラメータ保存ファイルがないので、loadしない。初回はsteps_done=0となる。
             if self.steps_done==0:
@@ -421,43 +384,10 @@ class jinGame_DQNAgent():
         replay_memory_dic = {}
         #rowがない場合(dynamo_select_row_by_itemIDでNoneとなる)とreplay_memory_memoryの内容が古い場合、このリストにitemIDを追加する
         none_user_id_list = [0,0]
-        #steps_doneがmaxでない(在庫切れなどでストップなど)場合、このリストにitemIDを追加する
-        not_max_steps_done_user_id_list = []
 
         #replay_memoryをdynamoDBから読み込んで作成。
         #条件によって、not_max_steps_done_item_id_listとnone_item_id_listにitemIDを追加する
         #itemID毎に要素を取り出して、連結していく。
-        #for itemID in itemIDList:
-        '''
-        for userID in userIDList:
-            row = self._select_row_by_userID(fn_agent, int(userID))
-            #rowがない場合はNoneとなる
-            #2回目以降はreplay_memory_dicはdynamoDBから読み込むことができる。
-            if row is not None:
-                #print("row is not None True")
-                #steps_doneがmaxかどうか
-                if row['steps_done'] == self.steps_done:
-                    replay_memory_memory = row['replay_memory_memory'].value
-                    replay_memory_memory = pickle.loads(replay_memory_memory)
-                    #insertではreplay_memory_memoryに[]を格納している
-                    if len(replay_memory_memory) > 0:
-                        for i in range(len(replay_memory_memory)):
-                            #int -> float
-                            replay_memory_memory[i][0] = replay_memory_memory[i][0].float()
-                            replay_memory_memory[i][2] = replay_memory_memory[i][2].float()
-                    #print(replay_memory_memory)
-                    #print(type(replay_memory_memory))
-                    replay_memory_dic[userID-1] = replay_memory_memory
-                #steps_doneがmaxでない、つまり古いValueなので、replay_memory_dic[userID]にNoneを格納しておく
-                else:
-                    not_max_steps_done_user_id_list.append(userID)
-                    replay_memory_dic[userID-1] = None
-            #rowがNoneの場合
-            else:
-                #print("row is not None False")
-                none_user_id_list.append(userID)
-                replay_memory_dic[userID-1] = None
-        '''
         # setps_doneが常にmaxであると願って...
         for userID in enumerate(userIDList):
             row = self._read_data_pickle(userID[1])
@@ -468,6 +398,9 @@ class jinGame_DQNAgent():
             else:
                 #print('row is existed')            
                 replay_memory_dic[str(userID[1])] = pickle.loads(row['replay_memory_memory'])
+        #print('epc',epc)
+        #print('turn',turn)
+        #print('replay_memory_dic',replay_memory_dic)
 
         #print(replay_memory_dic)
         #replay_memory_itemID_valueListに要素の数が最大で何個入っているか求める。最大サイズをmaxLengthに格納する
@@ -478,6 +411,7 @@ class jinGame_DQNAgent():
                 if maxLength < length:
                     maxLength = length
 
+        #print('maxLength',maxLength)
         #valueを取り出して、replay_memoryに格納していく
         #古いものから新しいものを入れていく
         for i in range(maxLength):
@@ -491,45 +425,15 @@ class jinGame_DQNAgent():
 
         #stateはbefore_(１日前)から取得
         state = torch.FloatTensor(df_division[:,:int(dim[1]/2)])
-        '''
-        #actionを格納していくnumpyリスト
-        actionList = np.zeros(len(df_division), dtype = int) 
+        #print('state(before_features)',state)
 
-        for index,product in enumerate(df_division.iterrows()):
-            #print("index",index)
-            #print(product[1].to_json(orient='records'))
-            #beforeDailyPriceが0の場合（初回）はinitPriceに一番近い価格をkeyにしてactionを取得する
-            if product[1].beforeDailyPrice == 0:
-                #keyが価格、valueがaction
-                action = self.makeNearInitPrice(product)
-            else:
-                #beforeDailyPriceからactionに変換する
-                action = self._make_action_class_non_care_init(product[1])[product[1].beforeDailyPrice]
-            actionList[index] = action
-        actionList = torch.from_numpy(actionList)
-        '''
-        actionList = self.action_history.pop()
+        actionList = torch.from_numpy(np.array(self.action_history.pop()))
+        #print('actionList(state to next_state):',actionList)
         
         #next_stateはfeatures(当日)から取得
         next_state = torch.FloatTensor(df_division[:,int(dim[1]/2):])
-        '''
-        before_daily_revenue = df_division['beforeDailyRevenue'].values
-        before_daily_uv = df_division['beforeDailyUv'].values
-        before_daily_uv[before_daily_uv == 0] = 1
+        #print('next_state:',next_state)
         
-        daily_revenue = df_division['dailyRevenue'].values
-        daily_uv = df_division['dailyUv'].values
-        # to avoid divide by zero
-        daily_uv[daily_uv == 0] = 1
-
-        sigmoid = nn.Sigmoid()
-        #rewardの設計 https://openreview.net/pdf?id=HJMRvsAcK7 
-        reward_r = torch.FloatTensor(daily_revenue)
-        '''
-        
-        #print('action: ',actionList)
-        ##print('reward: ',reward)
-
         #before_features_listの内容を追加する。辞書の更新とreplay_memoryの更新
         replay_memory_count = 0
         reward = []
@@ -537,23 +441,23 @@ class jinGame_DQNAgent():
             #ここで取り出される順番はitemIDListと対応している。
             #辞書からvalueListを取得。
             #初回の時と一旦ストップした商品はreplay_memoryには入れない。
-            '''
-            if itemIDList[i] in none_item_id_list or itemIDList[i] in not_max_steps_done_item_id_list:
-                continue
-            replay_memory_itemID_valueList = replay_memory_dic[itemIDList[i]]
-            '''
+
             # reward
             #reward.append(self._reward(i))
             reward.append(self._reward_ver2(i))
+            #print('reward:',reward)
 
             if replay_memory_dic[str(userIDList[i])] is None:
+                #print('replay_memory_dic is None')
                 continue
             #print(replay_memory_dic[str(userIDList[i])])
             replay_memory_userID_valueList = replay_memory_dic[str(userIDList[i])]
+            #print('replay_memory_userID_valueList',replay_memory_userID_valueList)
             #print(replay_memory_userID_valueList)
             #追加するvalue
             #addValue = [state[i], actionList[i], next_state[i], reward[i],itemIDList[i]]
             addValue = [state[i], actionList[i], next_state[i], reward[i], userIDList[i]]
+            #print('addValue=[state[i], actionList[i], next_state[i], reward[i],itemIDList[i]]:',addValue)
             #continueでない時、２回目以降などにくる。
             #valueListにappendする
             replay_memory_userID_valueList.append(addValue)
@@ -565,6 +469,7 @@ class jinGame_DQNAgent():
             overWriteFlag,deleteItemID = self.replay_memory.push(state[i], actionList[i], next_state[i], reward[i],userIDList[i])
             if overWriteFlag:
                 replay_memory_dic[str(deleteItemID)].pop(0)
+        #print('replay_memory_dic',replay_memory_dic)
         #print("replay_memory_count: ",replay_memory_count)
         #print("replay_memory_size: ",len(self.replay_memory))
         #print("#############")
@@ -589,30 +494,17 @@ class jinGame_DQNAgent():
             self.averageLoss = returnLoss
         #print('loss',returnLoss)
         if epc == 0 and turn ==0 and self.steps_done % self.target_update == 0:
-            print('update target net')
+            #print('update target net')
             self.target_net.load_state_dict(self.policy_net.state_dict())
-
-        #next_state_normalized = encode_onehot(next_state, onehot_idx_list, onehot_len_list)
-        #next_state_normalized = normalize_mask(next_state_normalized, onehot_idx_list, onehot_len_list)
 
         # map to price
         new_action = np.array([0,0])
         #next_stateからnew_actionが求まる　このnew_actionからnew_priceが求まり、これがreturnされる。
         for i in range(len(df_division)):
-            new_action[i] = self._select_action(next_state[i])
+            new_action[i] = self._select_action(next_state[i],self.on_epsilon_zero)
         
-        '''
-        for idx, product in enumerate(df_division.iterrows()):
-            #初回の時のnew_priceはinitPriceに一番近い値にする
-            if product[1].itemId in none_item_id_list or product[1].itemId in not_max_steps_done_item_id_list:
-                product_new_action = self.makeNearInitPrice(product)
-                product_new_price = self._make_price_class_non_care_init(product[1])[int(product_new_action)]
-                new_price = np.append(new_price,product_new_price)
-            else:
-                product_new_price = self._make_price_class_non_care_init(product[1])[int(new_action[idx])]
-                new_price = np.append(new_price,product_new_price)
-       '''
         #self.steps_done += 1
+        #print('new_action by [next_state](next_state to next_next state):',new_action)
         #print('none_user_id_list',none_user_id_list)
 
         for userID in enumerate(userIDList):
@@ -622,35 +514,7 @@ class jinGame_DQNAgent():
             else: # row is none
                 self._insert_agent(userID[1])
                 #print('_insert_agent_')
-            '''
-            elif userID in not_max_steps_done_user_id_list:
-                #print("IN not_max_steps_done_user_id_list")
-                replay_memory_userID_valueList = []
-                self._save_replay_memory(fn_agent,itemID,replay_memory_itemID_valueList,logNewPrice)
-            '''
 
-        ##print('run agent already exist wake up at ', self.steps_done)
-        '''
-        modelIDList = df_division['modelId'].values
-        #userIDListを基にfor文を回し、取得したitemIDで辞書型のkeyにアクセスする。
-        #取得したid,valueを基にdynamoDBに保存する。
-        #for index,itemID in enumerate(itemIDList):
-        for index,itemID in enumerate(userIDList):
-            if itemID in none_item_id_list:
-                self._insert_agent(db_agent,itemID)
-            elif itemID in not_max_steps_done_item_id_list:
-                #print("IN not_max_steps_done_item_id_list")
-                replay_memory_itemID_valueList = []
-                logNewPrice = new_price[index]
-                logModelID = modelIDList[index]
-                self._save_agent(db_agent,itemID,replay_memory_itemID_valueList,logNewPrice,logModelID)
-            else:
-                replay_memory_itemID_valueList = replay_memory_dic[itemID]
-                logNewPrice = new_price[index]
-                logModelID = modelIDList[index]
-                self._save_agent(db_agent,itemID,replay_memory_itemID_valueList,logNewPrice,logModelID)
-        #print('run agent already exist wake up at ', self.steps_done)
-        '''
         self._report_agent()
         return new_action, returnLoss, np.array(reward)
 
@@ -674,7 +538,7 @@ class jinGame_DQNAgent():
             #  2.4 行動させる
         epochs = EPOCHS
         for epc in range(epochs):
-            print('now_epc:',epc)
+            print('now_epc:',epc+1)
             # game start
             # self.agent_history()の初期化
             usr1_data = {'motion':"move", "lists": [1,4]}
@@ -682,11 +546,13 @@ class jinGame_DQNAgent():
             m_data = [usr1_data,usr2_data]
             n_data = [4,4]
             self.action_history.append(n_data)
+            #print('self.action_history',self.action_history)
 
             turn, length, width = env._start()
             before_features = []
             # turn の数だけ，行動を行う
-            for t in range(turn):
+            for t in range(turn+1):
+                #print('############################# now_turn %d #############################' % (t+1))
                 if t == 0: # before_feature の初期化
                     before_features = torch.cat(
                         (env.get_features(t,1),env.get_features(t,2)),
@@ -694,7 +560,6 @@ class jinGame_DQNAgent():
                     )
                 else: # フィールドの得点を変える
                     env._changeField()
-
                 # 2エージェント分の特徴量をまとめる
                 now_features = torch.cat(
                     (env.get_features(t+1,1),env.get_features(t+1,2)),
@@ -708,8 +573,9 @@ class jinGame_DQNAgent():
                     (before_features, now_features),
                     dim = 1 # 配列を縦にくっつける
                 )
+                #print('before_features',before_features)
+                #print('now_features',now_features)
                 before_features = now_features # 次ターンのbefore_featuresに，現ターン行動前の特徴量を設定する
-
                 # for 楽観的初期化
                 #k_division = 17 # 行動数
                 #states_num = 18 #len(data) 特徴量の大きさ(skalar)
@@ -728,24 +594,21 @@ class jinGame_DQNAgent():
                     self.feature_for_reward[0] = self.feature_for_reward[1] # before_point
                     #self.feature_for_reward[1] = [point_before_moving[2],point_before_moving[5]] # now_point
                     self.feature_for_reward[1] = point_before_moving # now_point
+                #print('self.features_for_reward',self.feature_for_reward)
+                #print('[[before_point],[now_point],[code],[do_direction]]')
                 # 特徴量をもとにネットワークから行動を取得
                     # run_agent() で次の行動を決める(実際に行動はしない)
                 #agent = DQNAgent(self.k_division)
-                if not evaluation: # 学習中
-                    # db_agent, df_division
-                    if epc == 0:
-                        new_action, loss, reward = self._run_agent(df_division, model.state_dict(), epc, t, i_flg=True) # new_action は数字を返す
-                    else:
-                        new_action, loss, reward = self._run_agent(df_division, model.state_dict(), epc, t) # new_action は数字を返す
-                else: # self play
-                    dim = df_division.shape
-                    next_state = torch.FloatTensor(df_division[:,dim[1]/2:])
-                    new_action = np.array([0,0])
-                    for i in range(len(df_division)):
-                        new_action[i] = self._select_action(next_state[i])
-
+                #if not evaluation: # 学習中
+                # db_agent, df_division
+                if epc == 0 and t==0:
+                    new_action, loss, reward = self._run_agent(df_division, model.state_dict(), epc, t, i_flg=True) # new_action は数字を返す
+                else:
+                    new_action, loss, reward = self._run_agent(df_division, model.state_dict(), epc, t) # new_action は数字を返す
                 # item_id_division:usrID(のリスト), new_price_division: usrの次の行動("n_position": 座標,"motion": move or remove,"direction": 方向,"is_possible": s_judjedirection()のコード)
                 usr_id_division = np.array([1,2])
+                if t==turn:
+                    new_action = np.array([None]*2)
                 df_dic = {'usrID': usr_id_division, 'now_eval': np.array([idx+1]*2), 'num_epoch': np.array([epochs]*2),'now_epoch_n': np.array([epc+1]*2), 'num_turn': np.array([turn]*2),'now_turn': np.array([t+1]*2), 'calcAction': new_action, 'Loss': np.array([loss]*2), 'reward': reward}#* len(item_id_division))}
                 #df_dic = {'calcAction': new_action, 'Loss': np.array([loss]*2), 'reward': reward}#* len(item_id_division))}
 
@@ -758,36 +621,46 @@ class jinGame_DQNAgent():
                 df_action["next_position"] = []
 
                 for usrID in enumerate(usr_id_division):
-                    code, data, next_pos = env._judgeDirection(usrID[1],new_action[usrID[1]-1])
-                    df_action["do_motion"].append(data['motion'])
-                    df_action["do_direction"].append(data['d'])
-                    df_action["is_possible"].append(code)
-                    self.feature_for_reward[2][usrID[1]-1] = int(code)
-                    df_action['now_position'].append(env._getPosition(usrID[1]))
-                    df_action["next_position"].append(next_pos)
-            
-                # エージェントの移動先が重なってるか，いないかを判定し行動を決定
-                #print(df_action)
-                cnf, m_data, n_data = env.check_action(df_action)
-                self.feature_for_reward[3] = n_data
-                #print('m_data, n_data',m_data, n_data)
+                    if t==turn:
+                        df_action["do_motion"].append([None]*2)
+                        df_action["do_direction"].append([None]*2)
+                        df_action["is_possible"].append([None]*2)
+                        df_action['now_position'].append([None]*2)
+                        df_action["next_position"].append([None]*2)
+                    else:
+                        code, data, next_pos = env._judgeDirection(usrID[1],new_action[usrID[1]-1])
+                        df_action["do_motion"].append(data['motion'])
+                        df_action["do_direction"].append(data['d'])
+                        df_action["is_possible"].append(code)
+                        self.feature_for_reward[2][usrID[1]-1] = int(code)
+                        df_action['now_position'].append(env._getPosition(usrID[1]))
+                        df_action["next_position"].append(next_pos)
 
-                #df_action["is_possible"] = np.array([int(i) for i in enumerate(df_action["is_possible"][1])])
-                df_dic.update(df_action)
-                df_dic["is_confliction"] = np.array([cnf]*2)
+            
+                if t < turn:
+                    # エージェントの移動先が重なってるか，いないかを判定し行動を決定
+                    #print(df_action)
+                    cnf, m_data, n_data = env.check_action(df_action)
+                    self.feature_for_reward[3] = n_data
+                    #print('m_data, n_data',m_data, n_data)
+
+                    #df_action["is_possible"] = np.array([int(i) for i in enumerate(df_action["is_possible"][1])])
+                    df_dic.update(df_action)
+                    df_dic["is_confliction"] = np.array([cnf]*2)
+                    #print(df_dic)
+
+                    #print(m_data)
+                    # 判定後に実際に移動させる
+                    env.do_action(m_data[0])
+                    env.do_action(m_data[1])
+                    # 行動を保存しておく
+                    self.action_history.append(new_action)
+                    #print('self.action_history_after',self.action_history)
+                    # 移動後の得点を取得
+                    point_after_moving = env._calcPoint()
+
                 df_dic['on_eps_zero'] = np.array([self.on_epsilon_zero]*2)
                 df_dic['eps_threshold'] = np.array([self.eps_threshold]*2)
-                #print(df_dic)
-
-                #print(m_data)
-                # 判定後に実際に移動させる
-                env.do_action(m_data[0])
-                env.do_action(m_data[1])
-                # 行動を保存しておく
-                self.action_history.append(n_data)  
-                # 移動後の得点を取得
-                point_after_moving = env._calcPoint()
-
                 # logを保存
                 if LOG_IN_LEARNING:
                     df = pd.DataFrame(df_dic)
@@ -836,7 +709,7 @@ class jinGame_DQNAgent():
         games_num = NUMBER_OF_SELFPLAY
 
         for g_num in range(games_num):
-            print('now_selfplay:',g_num)
+            print('now_selfplay:',g_num+1)
             before_features = []
             turn, length, width = env._start()
             # self.agent_history()の初期化
@@ -991,7 +864,7 @@ class jinGame_DQNAgent():
             for idx in range(NUMBER_OF_SETS):
                 print('self.steps_done',self.steps_done)
                 now_exec = np.append(now_exec, idx+1)
-                print('now_exec:', idx+1)
+                print('############################# now_exec: %d #############################' % (idx+1))
                 japantime_now = get_japantime_now()
                 print('learning start:',japantime_now)
                 result, a_logs = self.agent_learning(env, idx) # 学習

@@ -100,7 +100,8 @@ func StartServer(w http.ResponseWriter, r *http.Request) { // ゲームの開始
     }
   // ターン数,縦横の選定
     rand.Seed(time.Now().UnixNano())
-    // turn=rand.Intn(5) +5  // ターン数 (40~80)
+    //turn=rand.Intn(5) +5  // ターン数 (40~80)
+    //turn = 3
     turn=rand.Intn(15) +30  // ターン数 (30~50)
     length=rand.Intn(4)+8  // 縦の長さ (8~12)
     width=rand.Intn(4)+8   // 横の長さ (8~12)
@@ -278,6 +279,11 @@ func ShowServer(w http.ResponseWriter, r *http.Request) {  // フィールドの
     fmt.Fprintf(w,"\n")
   }
 }
+func show_detail(w http.ResponseWriter, r *http.Request){
+  fmt.Fprintf(w,"%d ",length)
+  fmt.Fprintf(w,"%d ",width)
+}
+
 func UsrpointServer(w http.ResponseWriter, r *http.Request) {  // userの位置
   r.ParseForm()
   u,_:=strconv.Atoi(r.FormValue("usr"))
@@ -581,6 +587,7 @@ func main() {
 	  http.HandleFunc("/judgedirection", JudgeServer)
     http.HandleFunc("/isrun", isRun)
     http.HandleFunc("/change", changeField)
+    http.HandleFunc("/show_detail",show_detail)
     // http.HandleFunc("/initpos", InitposServer)
 
     // ログ出力
