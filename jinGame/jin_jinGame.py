@@ -16,6 +16,7 @@ class jinGAME():
 
     def _start(self):
         self.turn,(self.length,self.width),pointfield = s_start(self.domain)
+        print('self.length,self.width',self.length,self.width)
         return self.turn,self.length,self.width
 
     def _move(self,usr,action):

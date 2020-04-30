@@ -46,7 +46,7 @@ class web_jinGame():
         # web_app のアドレス
         self.domain = domain
         self.jinGAME = jj.jinGAME(8008)
-        self.ai = web_jinGameAI(target_filename=TARGETNET_FILENAME, policy_filename=POLICYNET_FILENAME, is_epszero=True)
+        self.ai = web_jinGameAI(target_filename=TARGETNET_FILENAME, policy_filename=POLICYNET_FILENAME, is_epszero=IS_epsZERO)
         self.ai._init_agent()
         self.ai._load_agent()
         self.ai_before_features = []

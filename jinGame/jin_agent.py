@@ -54,7 +54,7 @@ class jinGame_DQNAgent():
 
         self.action_history = deque() # 行った行動を保存しておく
         self.agent_history = [[],[],[]] # [[#loss_median], [# target_name], [# policy_name]]
-        self.feature_for_reward = [[],[],[],[]] #[[before_point],[now_point],[code],[do_direction]]
+        self.feature_for_reward = [[],[],[],[],[]] #[[before_point],[now_point],[code],[do_direction]]
 
         self.EXPORT_REPLAYMEMORY_FILE_NAME_1 = ''
         self.EXPORT_REPLAYMEMORY_FILE_NAME_2 = ''
@@ -69,6 +69,7 @@ class jinGame_DQNAgent():
     #初期化
     def _init_agent(self, flg=False):
         if self.on_epsilon_zero: # epsilon-zero起動時
+            print('is epsZero')
             if not flg: # 学習のとき
                 #print('_init_agent: not flg')
                 self.policy_net = DQN_epsZero(self.states_number, self.actions_number).to(self.device)
@@ -85,6 +86,7 @@ class jinGame_DQNAgent():
                 self.target_net_e = DQN_epsZero(self.states_number, self.actions_number).to(self.device)
                 self.target_net_e.eval()
         else: # dqnのとき
+            print('is dqn')
             if not flg: # 学習のとき
                 self.policy_net = DQN(self.states_number, self.actions_number).to(self.device)
                 self.target_net = DQN(self.states_number, self.actions_number).to(self.device)
@@ -213,6 +215,53 @@ class jinGame_DQNAgent():
         #print('fac1,fac2,fac3',fac1,fac2,fac3)
         reward = (fac1+fac2+fac3)/3
         #print('reward',reward)
+        return reward
+
+    def _reward_ver3(self,env, usr):
+        #print('usr',usr)
+        #print('self.feature_for_reward',self.feature_for_reward)
+        if usr==1:
+            idx = 1
+            pnl = 5
+        else:
+            idx = 4
+            pnl = 6
+
+        pf, uf = env._getField()
+        uf = np.array(uf)
+        uf_shape = uf.shape
+        print('uf_shape',uf_shape)
+        uf = np.ravel(uf)
+        if self.feature_for_reward[2][usr]==5 or (self.feature_for_reward[2][usr]==4 and self.feature_for_reward[3][usr] > 8): # codeが5,4(remove)なら1, それ以外なら-1
+            fac1 = 1
+            pos = self.feature_for_reward[4][usr]
+            print('pos',pos)
+            print('n_pos',pos[0] + pos[1]*uf_shape[1])
+            if uf[pos[0] + pos[1]*uf_shape[1]] != pnl:
+                fac4 = 1
+            else:
+                fac4 = -1
+        else:
+            fac1 = -1
+            fac4 = -1
+
+        if self.feature_for_reward[3][usr]==-1: 
+            fac2 = 0
+        elif self.feature_for_reward[3][usr]==4: # 他のますに対する行動をしなかったら-1, したら1
+            fac2 = -1
+        else:
+            fac2 = 1
+
+        if (self.feature_for_reward[0][idx] != 0 and self.feature_for_reward[1][idx] != 0) or (self.feature_for_reward[0][idx] == 0 and self.feature_for_reward[1][idx] != 0): # areapoint!=0が維持 or areapoint が入れば1
+            fac3 = 1
+        elif self.feature_for_reward[0][idx] != 0 and self.feature_for_reward[1][idx] == 0: # areapointが0になれば-1,
+            fac3 = -1
+        else:
+            fac3 = -1
+
+        print('fac1,fac2,fac3,fac4',fac1,fac2,fac3,fac4)
+        reward = (fac1+fac2+fac3+fac4)/4
+        print('reward',reward)
         return reward
 
     def _insert_agent(self, user_id):
@@ -344,7 +393,7 @@ class jinGame_DQNAgent():
                 return torch.tensor(random.randrange(self.actions_number), device=self.device, dtype=torch.long)
                 #return torch.tensor([random.randrange(self.actions_number) for i in range(len(state))], device=self.device, dtype=torch.long)
 
-    def _run_agent(self, df_division, model_state_dict, epc, turn,i_flg=False): # 学習させてloss, nextActionを取得, i_flgは各インターバル1回目の学習
+    def _run_agent(self, env, df_division, model_state_dict, epc, turn,i_flg=False): # 学習させてloss, nextActionを取得, i_flgは各インターバル1回目の学習
         dim = df_division.shape
         #モデルに渡すagentの数
         self.numberOfProducts = dim[0]#len(df_division)
@@ -444,7 +493,8 @@ class jinGame_DQNAgent():
 
             # reward
             #reward.append(self._reward(i))
-            reward.append(self._reward_ver2(i))
+            #reward.append(self._reward_ver2(i))
+            reward.append(self._reward_ver3(env, i))
             #print('reward:',reward)
 
             if replay_memory_dic[str(userIDList[i])] is None:
@@ -573,6 +623,7 @@ class jinGame_DQNAgent():
                     (before_features, now_features),
                     dim = 1 # 配列を縦にくっつける
                 )
+                print('df_division:',df_division)
                 #print('before_features',before_features)
                 #print('now_features',now_features)
                 before_features = now_features # 次ターンのbefore_featuresに，現ターン行動前の特徴量を設定する
@@ -590,11 +641,12 @@ class jinGame_DQNAgent():
                     self.feature_for_reward[1] = point_before_moving # now_point
                     self.feature_for_reward[2] = [5,5] # code
                     self.feature_for_reward[3] = [-1,-1]
+                    self.feature_for_reward[4] = [env._getPosition(1),env._getPosition(2)]
                 else:
                     self.feature_for_reward[0] = self.feature_for_reward[1] # before_point
                     #self.feature_for_reward[1] = [point_before_moving[2],point_before_moving[5]] # now_point
                     self.feature_for_reward[1] = point_before_moving # now_point
-                #print('self.features_for_reward',self.feature_for_reward)
+                print('self.features_for_reward',self.feature_for_reward)
                 #print('[[before_point],[now_point],[code],[do_direction]]')
                 # 特徴量をもとにネットワークから行動を取得
                     # run_agent() で次の行動を決める(実際に行動はしない)
@@ -602,9 +654,9 @@ class jinGame_DQNAgent():
                 #if not evaluation: # 学習中
                 # db_agent, df_division
                 if epc == 0 and t==0:
-                    new_action, loss, reward = self._run_agent(df_division, model.state_dict(), epc, t, i_flg=True) # new_action は数字を返す
+                    new_action, loss, reward = self._run_agent(env, df_division, model.state_dict(), epc, t, i_flg=True) # new_action は数字を返す
                 else:
-                    new_action, loss, reward = self._run_agent(df_division, model.state_dict(), epc, t) # new_action は数字を返す
+                    new_action, loss, reward = self._run_agent(env, df_division, model.state_dict(), epc, t) # new_action は数字を返す
                 # item_id_division:usrID(のリスト), new_price_division: usrの次の行動("n_position": 座標,"motion": move or remove,"direction": 方向,"is_possible": s_judjedirection()のコード)
                 usr_id_division = np.array([1,2])
                 if t==turn:
@@ -635,6 +687,7 @@ class jinGame_DQNAgent():
                         self.feature_for_reward[2][usrID[1]-1] = int(code)
                         df_action['now_position'].append(env._getPosition(usrID[1]))
                         df_action["next_position"].append(next_pos)
+                        self.feature_for_reward[4][usrID[1]-1] = next_pos
 
             
                 if t < turn:
@@ -642,6 +695,7 @@ class jinGame_DQNAgent():
                     #print(df_action)
                     cnf, m_data, n_data = env.check_action(df_action)
                     self.feature_for_reward[3] = n_data
+                    print('after_feature_for_reward:',self.feature_for_reward)
                     #print('m_data, n_data',m_data, n_data)
 
                     #df_action["is_possible"] = np.array([int(i) for i in enumerate(df_action["is_possible"][1])])
