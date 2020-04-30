@@ -410,7 +410,7 @@ class jinGame_DQNAgent():
         self.memory_length = 14*self.numberOfProducts
         #_optimize_modelを呼び出す回数 ＝ 勾配を求める回数
         #samplingCountは徐々に減らすようにした方がいいかもしれない
-        self.samplingCount = int(self.numberOfProducts / self.batch_size) * 20
+        self.samplingCount = int((self.numberOfProducts+1) / self.batch_size) * 20
 
         #print('numberOfProducts: ', self.numberOfProducts)
         #print('batch_size: ', self.batch_size)
@@ -538,16 +538,16 @@ class jinGame_DQNAgent():
         #optimize_modelメソッドをsamplingCountだけ走らせる。samplingCountだけlossが求まり、パラメータが更新される。
         returnLoss = -1
         sumLoss = 0
-
+        #print('self.samplingCount',self.samplingCount)
         #self.samplingCountだけ勾配を求める
         for count in range(self.samplingCount):
             #学習
             sampleLoss = self._optimize_model()
+            #print('count',count)
+            #print('sampleLoss',sampleLoss)
             #if len(self.replay_memory) < self.batch_size: の時、return None
             if sampleLoss is None:
                 break
-            #print('count',count)
-            #print('sampleLoss',sampleLoss)
             sumLoss += sampleLoss
         if sumLoss != 0:
             returnLoss = sumLoss / self.samplingCount
