@@ -410,7 +410,7 @@ class jinGame_DQNAgent():
         self.memory_length = 14*self.numberOfProducts
         #_optimize_modelを呼び出す回数 ＝ 勾配を求める回数
         #samplingCountは徐々に減らすようにした方がいいかもしれない
-        self.samplingCount = int(self.numberOfProducts / self.batch_size) * 20
+        self.samplingCount = int((self.numberOfProducts+1) / self.batch_size) * 20
 
         #print('numberOfProducts: ', self.numberOfProducts)
         #print('batch_size: ', self.batch_size)
