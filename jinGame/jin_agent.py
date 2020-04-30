@@ -551,7 +551,7 @@ class jinGame_DQNAgent():
         new_action = np.array([0,0])
         #next_stateからnew_actionが求まる　このnew_actionからnew_priceが求まり、これがreturnされる。
         for i in range(len(df_division)):
-            new_action[i] = self._select_action(next_state[i],self.on_epsilon_zero)
+            new_action[i] = self._select_action(next_state[i],ez_flg=self.on_epsilon_zero)
         
         #self.steps_done += 1
         #print('new_action by [next_state](next_state to next_next state):',new_action)
@@ -889,7 +889,7 @@ class jinGame_DQNAgent():
                 self.agent_history[0].append(a_logs['loss_median'])
                 self.agent_history[1].append(a_logs['target'])
                 self.agent_history[2].append(a_logs['policy'])
-                return {'oppo_target': a_logs["policy"], 'oppo_policy': a_logs["target"]}
+                return {'oppo_target': a_logs["target"], 'oppo_policy': a_logs["policy"]}
             else:
                 oppo_target_name = self.agent_history[1][0]
                 oppo_policy_name = self.agent_history[2][0]
@@ -908,6 +908,8 @@ class jinGame_DQNAgent():
         agent_won = np.array([])
         agent_policy_network = np.array([])
         agent_target_network = np.array([])
+        opponent_policy_network = np.array([])
+        opponent_target_network = np.array([])
         won_network_filename_target = np.array([])
         won_network_filename_policy = np.array([])
         self.steps_done = 0
@@ -935,6 +937,8 @@ class jinGame_DQNAgent():
                 agent = {"policy":a_logs["policy"], "target":a_logs["target"]}
                 agent_policy_network = np.append(agent_policy_network, agent['policy'])
                 agent_target_network = np.append(agent_target_network, agent['target'])
+                opponent_policy_network = np.append(opponent_policy_network, opponent['oppo_policy'])
+                opponent_target_network = np.append(opponent_target_network, opponent['oppo_target'])
                 #print(agent)
                 #print(opponent)
                 japantime_now = get_japantime_now()
@@ -945,6 +949,7 @@ class jinGame_DQNAgent():
 
                 num_agent_won = np.append(num_agent_won, e_logs['agent_won'])
                 num_opponent_won = np.append(num_opponent_won, e_logs['opponent_won'])
+                
                 if e_logs['agent_won'] > e_logs['opponent_won']:
                     agent_won = np.append(agent_won, 1)
                 else:
@@ -961,8 +966,8 @@ class jinGame_DQNAgent():
                     next_agent = self.select_model(a_logs=a_logs, e_logs=e_logs)
                     won_network_filename_target = np.append(won_network_filename_target, next_agent['target'])
                     won_network_filename_policy = np.append(won_network_filename_policy, next_agent['policy'])
-                    self.IMPORT_POLICY_FILE_NAME = next_agent['target']
-                    self.IMPORT_TARGET_FILE_NAME = next_agent['policy']                
+                    self.IMPORT_POLICY_FILE_NAME = next_agent['policy']
+                    self.IMPORT_TARGET_FILE_NAME = next_agent['target']                
 
 
                 self.steps_done += 1
@@ -972,8 +977,10 @@ class jinGame_DQNAgent():
             df_Logs['num_agent_won'] = num_agent_won
             df_Logs['num_opponent_won'] = num_opponent_won
             df_Logs['agent_won'] = agent_won
-            df_Logs['agent_target_network'] = agent_policy_network
-            df_Logs['agent_policy_network'] = agent_target_network
+            df_Logs['agent_target_network'] = agent_target_network
+            df_Logs['agent_policy_network'] = agent_policy_network
+            df_Logs['opponent_target_network'] = opponent_target_network
+            df_Logs['opponent_policy_network'] = opponent_policy_network
             df_Logs['won_target_network'] = won_network_filename_target
             df_Logs['won_policy_network'] = won_network_filename_policy
             df_Logs['on_eps_zero'] = np.array([self.on_epsilon_zero]*NUMBER_OF_SETS)
