@@ -230,13 +230,13 @@ class jinGame_DQNAgent():
         pf, uf = env._getField()
         uf = np.array(uf)
         uf_shape = uf.shape
-        print('uf_shape',uf_shape)
+        #print('uf_shape',uf_shape)
         uf = np.ravel(uf)
         if self.feature_for_reward[2][usr]==5 or (self.feature_for_reward[2][usr]==4 and self.feature_for_reward[3][usr] > 8): # codeが5,4(remove)なら1, それ以外なら-1
             fac1 = 1
             pos = self.feature_for_reward[4][usr]
-            print('pos',pos)
-            print('n_pos',pos[0] + pos[1]*uf_shape[1])
+            #print('pos',pos)
+            #print('n_pos',pos[0] + pos[1]*uf_shape[1])
             if uf[pos[0] + pos[1]*uf_shape[1]] != pnl:
                 fac4 = 1
             else:
@@ -259,9 +259,9 @@ class jinGame_DQNAgent():
         else:
             fac3 = -1
 
-        print('fac1,fac2,fac3,fac4',fac1,fac2,fac3,fac4)
+        #print('fac1,fac2,fac3,fac4',fac1,fac2,fac3,fac4)
         reward = (fac1+fac2+fac3+fac4)/4
-        print('reward',reward)
+        #print('reward',reward)
         return reward
 
     def _insert_agent(self, user_id):
@@ -623,7 +623,7 @@ class jinGame_DQNAgent():
                     (before_features, now_features),
                     dim = 1 # 配列を縦にくっつける
                 )
-                print('df_division:',df_division)
+                #print('df_division:',df_division)
                 #print('before_features',before_features)
                 #print('now_features',now_features)
                 before_features = now_features # 次ターンのbefore_featuresに，現ターン行動前の特徴量を設定する
@@ -646,7 +646,7 @@ class jinGame_DQNAgent():
                     self.feature_for_reward[0] = self.feature_for_reward[1] # before_point
                     #self.feature_for_reward[1] = [point_before_moving[2],point_before_moving[5]] # now_point
                     self.feature_for_reward[1] = point_before_moving # now_point
-                print('self.features_for_reward',self.feature_for_reward)
+                #print('self.features_for_reward',self.feature_for_reward)
                 #print('[[before_point],[now_point],[code],[do_direction]]')
                 # 特徴量をもとにネットワークから行動を取得
                     # run_agent() で次の行動を決める(実際に行動はしない)
@@ -695,7 +695,7 @@ class jinGame_DQNAgent():
                     #print(df_action)
                     cnf, m_data, n_data = env.check_action(df_action)
                     self.feature_for_reward[3] = n_data
-                    print('after_feature_for_reward:',self.feature_for_reward)
+                    #print('after_feature_for_reward:',self.feature_for_reward)
                     #print('m_data, n_data',m_data, n_data)
 
                     #df_action["is_possible"] = np.array([int(i) for i in enumerate(df_action["is_possible"][1])])
