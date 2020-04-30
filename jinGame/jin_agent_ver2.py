@@ -366,34 +366,39 @@ class jinGame_DQNAgent():
         torch.save(self.target_net.state_dict(),self.EXPORT_TARGET_FILE_NAME)
         return fn
 
-    def _select_action(self, state, evaluation=False, ez_flg=False): # ez_flg は epsilon-zero 用フラグ
-        state = state.to(self.device)
-        if evaluation or ez_flg: # self play中
-            #print('ez_flg')
-            #print("######### policy net ###")
-            #print(self.policy_net)
-            #print(self.policy_net(state))
-            with torch.no_grad():
-                #(1)で列　[1]でmaxになっているindexを取得
-                return self.policy_net(state).max(1)[1]
-        else: # 学習中
-            sample = random.random()
-            #これはPyTorchのDQNチュートリアルから
-            eps_threshold = self.eps_end + (self.eps_start - self.eps_end) *  math.exp(-1. * self.steps_done / self.eps_decay)
-            self.eps_threshold = eps_threshold
-            #print("######### policy net ###")
-            #print('self.policy_net',self.policy_net)
-            #print('(state)',self.policy_net(state))
-            if sample > eps_threshold:
-            #if sample < eps_threshold:
+    def _select_action(self, state=None,evaluation=False, ez_flg=False): # ez_flg は epsilon-zero 用フラグ
+        if state is not None:
+            state = state.to(self.device)
+            #print('usr:',1)
+            if evaluation or ez_flg: # self play中
+                #print('ez_flg')
+                #print("######### policy net ###")
+                #print(self.policy_net)
+                #print(self.policy_net(state))
                 with torch.no_grad():
+                    #(1)で列　[1]でmaxになっているindexを取得
                     return self.policy_net(state).max(1)[1]
-            else:
-                #ランダムセレクト
-                return torch.tensor(random.randrange(self.actions_number), device=self.device, dtype=torch.long)
-                #return torch.tensor([random.randrange(self.actions_number) for i in range(len(state))], device=self.device, dtype=torch.long)
+            else: # 学習中
+                sample = random.random()
+                #これはPyTorchのDQNチュートリアルから
+                eps_threshold = self.eps_end + (self.eps_start - self.eps_end) *  math.exp(-1. * self.steps_done / self.eps_decay)
+                self.eps_threshold = eps_threshold
+                #print("######### policy net ###")
+                #print('self.policy_net',self.policy_net)
+                #print('(state)',self.policy_net(state))
+                if sample > eps_threshold:
+                #if sample < eps_threshold:
+                    with torch.no_grad():
+                        return self.policy_net(state).max(1)[1]
+                else:
+                    #ランダムセレクト
+                    return torch.tensor(random.randrange(self.actions_number), device=self.device, dtype=torch.long)
+                    #return torch.tensor([random.randrange(self.actions_number) for i in range(len(state))], device=self.device, dtype=torch.long)
+        else:
+            #print('usr:',2)
+            return torch.tensor(random.randrange(self.actions_number), device=self.device, dtype=torch.long)
 
-    def _run_agent(self, env, df_division, model_state_dict, epc, turn,i_flg=False): # 学習させてloss, nextActionを取得, i_flgは各インターバル1回目の学習
+    def _run_agent(self, env, df_division, model_state_dict, epc, turn,i_flg=False, r_flg=False): # 学習させてloss, nextActionを取得, i_flgは各インターバル1回目の学習
         dim = df_division.shape
         #モデルに渡すagentの数
         self.numberOfProducts = dim[0]#len(df_division)
@@ -482,11 +487,12 @@ class jinGame_DQNAgent():
         #next_stateはfeatures(当日)から取得
         next_state = torch.FloatTensor(df_division[:,int(dim[1]/2):])
         #print('next_state:',next_state)
+        #print('next_state[0]',next_state[0])
         
         #before_features_listの内容を追加する。辞書の更新とreplay_memoryの更新
         replay_memory_count = 0
         reward = []
-        for i in range(len(state)):
+        for i in range(len(state)+1):
             #ここで取り出される順番はitemIDListと対応している。
             #辞書からvalueListを取得。
             #初回の時と一旦ストップした商品はreplay_memoryには入れない。
@@ -494,7 +500,11 @@ class jinGame_DQNAgent():
             # reward
             #reward.append(self._reward(i))
             #reward.append(self._reward_ver2(i))
-            reward.append(self._reward_ver3(env, i))
+            if i==0:
+                reward.append(self._reward_ver3(env, i))
+            else:
+                reward.append(10)
+                break
             #print('reward:',reward)
 
             if replay_memory_dic[str(userIDList[i])] is None:
@@ -550,9 +560,9 @@ class jinGame_DQNAgent():
         # map to price
         new_action = np.array([0,0])
         #next_stateからnew_actionが求まる　このnew_actionからnew_priceが求まり、これがreturnされる。
-        for i in range(len(df_division)):
-            new_action[i] = self._select_action(next_state[i],self.on_epsilon_zero)
-        
+        new_action[0] = self._select_action(next_state[0],ez_flg=self.on_epsilon_zero)
+        new_action[1] = self._select_action_no2(env)
+        #print('new_action:',new_action)
         #self.steps_done += 1
         #print('new_action by [next_state](next_state to next_next state):',new_action)
         #print('none_user_id_list',none_user_id_list)
@@ -567,6 +577,14 @@ class jinGame_DQNAgent():
 
         self._report_agent()
         return new_action, returnLoss, np.array(reward)
+
+    def _select_action_no2(self,env):
+        while True:
+            #print('select action no2')
+            tmp = torch.tensor(random.randrange(self.actions_number), device=self.device, dtype=torch.long)
+            code, data, next_pos = env._judgeDirection(2,tmp)
+            if code=="5" or (code=="4" and tmp>8):
+                return tmp
 
     def agent_learning(self, env, idx, evaluation=False): # 一定期間試合を行わせて学習をさせる
         epochs_done = 0 # 正しく実行された回数をカウント
@@ -604,17 +622,23 @@ class jinGame_DQNAgent():
             for t in range(turn+1):
                 #print('############################# now_turn %d #############################' % (t+1))
                 if t == 0: # before_feature の初期化
-                    before_features = torch.cat(
+                    before_features = env.get_features(t,1)
+                    '''
+                    torch.cat(
                         (env.get_features(t,1),env.get_features(t,2)),
                         dim = 0
                     )
+                    '''
                 else: # フィールドの得点を変える
                     env._changeField()
                 # 2エージェント分の特徴量をまとめる
-                now_features = torch.cat(
+                now_features = env.get_features(t+1,1)
+                '''
+                torch.cat(
                     (env.get_features(t+1,1),env.get_features(t+1,2)),
                     dim=0 # 横長の配列を縦に並べる
-                )#前ターンの行動後(つまり現ターンの行動前)の特徴量
+                )
+                '''#前ターンの行動後(つまり現ターンの行動前)の特徴量
                 data = torch.cat(
                     (before_features, now_features),
                     dim = 0 # 配列を縦にくっつける
@@ -653,10 +677,11 @@ class jinGame_DQNAgent():
                 #agent = DQNAgent(self.k_division)
                 #if not evaluation: # 学習中
                 # db_agent, df_division
+                
                 if epc == 0 and t==0:
-                    new_action, loss, reward = self._run_agent(env, df_division, model.state_dict(), epc, t, i_flg=True) # new_action は数字を返す
+                    new_action, loss, reward = self._run_agent(env, df_division, model.state_dict(), epc, t, i_flg=True, r_flg=True) # new_action は数字を返す
                 else:
-                    new_action, loss, reward = self._run_agent(env, df_division, model.state_dict(), epc, t) # new_action は数字を返す
+                    new_action, loss, reward = self._run_agent(env, df_division, model.state_dict(), epc, t, r_flg=True) # new_action は数字を返す
                 # item_id_division:usrID(のリスト), new_price_division: usrの次の行動("n_position": 座標,"motion": move or remove,"direction": 方向,"is_possible": s_judjedirection()のコード)
                 usr_id_division = np.array([1,2])
                 if t==turn:
@@ -694,6 +719,7 @@ class jinGame_DQNAgent():
                     # エージェントの移動先が重なってるか，いないかを判定し行動を決定
                     #print(df_action)
                     cnf, m_data, n_data = env.check_action(df_action)
+                    #if
                     self.feature_for_reward[3] = n_data
                     #print('after_feature_for_reward:',self.feature_for_reward)
                     #print('m_data, n_data',m_data, n_data)
@@ -716,6 +742,7 @@ class jinGame_DQNAgent():
                 df_dic['on_eps_zero'] = np.array([self.on_epsilon_zero]*2)
                 df_dic['eps_threshold'] = np.array([self.eps_threshold]*2)
                 # logを保存
+                #print('df_dic',df_dic)
                 if LOG_IN_LEARNING:
                     df = pd.DataFrame(df_dic)
                     if epc == 0 and t == 0:
@@ -1003,6 +1030,7 @@ def main():
     env = jin_jinGame.jinGAME()
     agent = jinGame_DQNAgent()
     print('lets start')
+    print('jin_agent_ver2')
     res = agent.process(env)
     if not res:
         print('see log file')
