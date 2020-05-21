@@ -264,6 +264,53 @@ class jinGame_DQNAgent():
         #print('reward',reward)
         return reward
 
+    def _reward_ver4(self,env, usr):
+        #print('usr',usr)
+        #print('self.feature_for_reward',self.feature_for_reward)
+        if usr==1:
+            idx = 1
+            pnl = 5
+        else:
+            idx = 4
+            pnl = 6
+
+        pf, uf = env._getField()
+        uf = np.array(uf)
+        uf_shape = uf.shape
+        #print('uf_shape',uf_shape)
+        uf = np.ravel(uf)
+        if self.feature_for_reward[2][usr]==5 or (self.feature_for_reward[2][usr]==4 and self.feature_for_reward[3][usr] > 8): # codeが5,4(remove)なら1, それ以外なら-1
+            fac1 = 1
+            pos = self.feature_for_reward[4][usr]
+            #print('pos',pos)
+            #print('n_pos',pos[0] + pos[1]*uf_shape[1])
+            if uf[pos[0] + pos[1]*uf_shape[1]] != pnl:
+                fac4 = 1
+            else:
+                fac4 = -1
+        else:
+            fac1 = -1
+            fac4 = -1
+
+        if self.feature_for_reward[3][usr]==-1: 
+            fac2 = 0
+        elif self.feature_for_reward[3][usr]==4: # 他のますに対する行動をしなかったら-1, したら1
+            fac2 = -1
+        else:
+            fac2 = 1
+
+        if (self.feature_for_reward[0][idx] != 0 and self.feature_for_reward[1][idx] != 0) or (self.feature_for_reward[0][idx] == 0 and self.feature_for_reward[1][idx] != 0): # areapoint!=0が維持 or areapoint が入れば1
+            fac3 = 1
+        elif self.feature_for_reward[0][idx] != 0 and self.feature_for_reward[1][idx] == 0: # areapointが0になれば-1,
+            fac3 = -1
+        else:
+            fac3 = -1
+
+        #print('fac1,fac2,fac3,fac4',fac1,fac2,fac3,fac4)
+        reward = (fac1+fac2+fac3+fac4)/4
+        #print('reward',reward)
+        return reward
+
     def _insert_agent(self, user_id):
         japantime_now = get_japantime_now()
         japantime_now_str = date_to_date(japantime_now)
