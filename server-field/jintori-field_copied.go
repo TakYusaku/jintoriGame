@@ -101,9 +101,12 @@ func StartServer(w http.ResponseWriter, r *http.Request) { // ゲームの開始
   // ターン数,縦横の選定
     rand.Seed(time.Now().UnixNano())
     // turn=rand.Intn(5) +5  // ターン数 (40~80)
-    turn=rand.Intn(15) +30  // ターン数 (25~35)
-    length=rand.Intn(4)+8  // 縦の長さ (8~12)
-    width=rand.Intn(4)+8   // 横の長さ (8~12)
+    turn=45  // ターン数 (25~35)
+    length=9  // 縦の長さ (8~12)
+    width=9
+    //turn=rand.Intn(15) +30  // ターン数 (25~35)
+    //length=rand.Intn(4)+8  // 縦の長さ (8~12)
+    //width=rand.Intn(4)+8   // 横の長さ (8~12)
 
     fmt.Fprintf(w,"%d\n",turn)
     fmt.Fprintf(w,"%d\n",length)
